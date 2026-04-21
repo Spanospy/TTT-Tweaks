@@ -44,34 +44,38 @@ function RJ_ApplyChanges(firstTimeSetup)
         swep.Primary.ClipSize    = ammoVal
         swep.Primary.DefaultClip = ammoVal
         if CLIENT then swep.DrawAmmo = true end
-
-        swep.JumperFire = function(self)
-            local ply = self:GetOwner()
-            local worldShootPos = ply:GetShootPos()
-            local viewTargetPos = ply:GetAimVector() * 200
-            local tr = util.TraceLine({
-                start = worldShootPos,
-                endpos = worldShootPos + viewTargetPos,
-                filter = ply,
-                mask = MASK_NPCSOLID_BRUSHONLY
-            }) -- same "in range" criteria as original addon (local func)
-
-            if tr.Fraction < 1 and self:CanPrimaryAttack() then
-                RJ_OG_JUMPERFIRE(self)
-                self:SetClip1(self:Clip1() - 1)
-            end
-        end
-
     else
         swep.Primary.ClipSize    = -1
         swep.Primary.DefaultClip = -1
         if CLIENT then swep.DrawAmmo = false end
-
-        swep.JumperFire = RJ_OG_JUMPERFIRE
     end
 
     ---------------------------------------------------------------
     if not firstTimeSetup then return end -- first time setup below
+
+    swep.JumperFire = function(self)
+        local usesAmmo = RJ_USES_AMMO:GetBool()
+        local ply = self:GetOwner()
+
+        local worldShootPos = ply:GetShootPos()
+        local viewTargetPos = ply:GetAimVector() * 200
+        local tr = util.TraceLine({
+            start = worldShootPos,
+            endpos = worldShootPos + viewTargetPos,
+            filter = ply,
+            mask = MASK_NPCSOLID_BRUSHONLY
+        }) -- same "in range" criteria as original addon (local func)
+
+        if tr.Fraction < 1 and (not usesAmmo or self:CanPrimaryAttack()) then
+            RJ_OG_JUMPERFIRE(self)
+
+            if usesAmmo then
+                self:SetClip1(self:Clip1() - 1)
+            else
+                self._rjJumpTracker = self._rjJumpTracker and (self._rjJumpTracker + 1) or 1
+            end
+        end
+    end
 
     function swep:AddToSettingsMenu(parent)
         local formTweaks = vgui.CreateTTT2Form(parent, "TTT Tweaks")
@@ -98,6 +102,16 @@ function RJ_ApplyChanges(firstTimeSetup)
                 if wep:GetClass() == RJ_CLASSNAME then
                     if not wep:GetIsJumper() then
                         wep:BecomeJumper()
+
+                        if not RJ_USES_AMMO:GetBool() then
+                            local stat = "[Stat Track] This Rocket Jumper has been used "..wep._rjJumpTracker.." time"
+                            if wep._rjJumpTracker >= 500 then stat = stat.."s! Give it a rest!"
+                            elseif wep._rjJumpTracker >= 200 then stat = stat.."s! You're not stalling are you?"
+                            elseif wep._rjJumpTracker >= 100 then stat = stat.."s! Wow!"
+                            elseif wep._rjJumpTracker >= 20 then stat = stat.."s!"
+                            elseif wep._rjJumpTracker > 1 then stat = stat.."s" end
+                            LANG.Msg(ply, stat, nil, MSG_MSTACK_PLAIN)
+                        end
                     end
 
                     return

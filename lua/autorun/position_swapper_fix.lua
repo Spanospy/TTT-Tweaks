@@ -24,7 +24,6 @@ SOFTWARE.
 
 hook.Add("InitPostEntity", "TTT2PositionSwapperFix", function()
     swep = weapons.GetStored("posswitch")
-
     if not swep then return end
 
     swep.PrimaryAttack = function(self)
@@ -34,7 +33,11 @@ hook.Add("InitPostEntity", "TTT2PositionSwapperFix", function()
                 local target = self.TargetEnt
 
                 if IsValid( target ) and owner:Alive() then
-                    if ( target:Alive() ) then
+                    if not target:Alive() then
+                        owner:ChatPrint("The target is dead!")
+                    elseif (not owner:IsOnGround() and owner:WaterLevel() == 0) then
+                        owner:ChatPrint("You can't swap while airborne!")
+                    else
                         local selfpos = owner:GetPos()
                         local entpos = target:GetPos()
 
@@ -43,14 +46,19 @@ hook.Add("InitPostEntity", "TTT2PositionSwapperFix", function()
 
                         owner:ChatPrint( "Swapped position with " .. target:Nick() .. "." )
                         self:Remove()
-                    else
-                        owner:ChatPrint( "The target is dead!" )
                     end
                 else
                     owner:ChatPrint( "No target is selected: Right-click on a player to select one." )
                     return "failed"
                 end
             end)
+        end
+    end
+
+    swep.Initialize = function(self)
+        if CLIENT then
+            self:AddTTT2HUDHelp("Swap with target", "Select target")
+            self:AddHUDHelpLine("Unselect target", Key("+reload", "R"))
         end
     end
 end)
